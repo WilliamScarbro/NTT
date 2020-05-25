@@ -1,0 +1,149 @@
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "ntt.h"
+/*
+* Computes forward NTT
+* in Z[X]/p
+*    /(X^N-1)
+* Flags adjust parallelism
+*/
+void ntt(long* vec, long* dest, long N, long P, long root){
+    long i,j,sum; 
+    for (i=0; i<N; i++){
+        sum=0;
+        for (j=0; j<N; j++){
+            sum+=vec[j] * power_mod(root,i*j,P);
+            sum%=P;
+        }
+        dest[i]=sum;
+    }
+}
+/*
+* Computes reverse NTT
+*/
+void inv_ntt(long* vec, long* dest, long N, long P, long root){
+    ntt(vec,dest,N,P,inverse(root,P));
+    long inv_N = inverse(N,P);
+    for (int i=0; i<N; i++)
+        dest[i]=(dest[i]*inv_N)%P;
+}
+
+/*
+* Multiplies two elements in Z[X]/P
+*                            /(X^N-1)
+*/
+void convolution(long* vec1, long* vec2, long* dest, long* temp, long N, long P, long root){
+    ntt(vec1,dest,N,P,root);
+    ntt(vec2,temp,N,P,root);
+    long i;
+    for (i=0; i<N; i++){
+        temp[i]*=dest[i];
+    }
+    inv_ntt(temp,dest,N,P,root);
+}
+
+void printPoly(long* vec, long N){
+    printf("%ldX^%d ",vec[0],0);
+    for (long i=1; i<N; i++){
+        printf("+ %ldX^%ld",vec[i],i);
+    }
+    printf("\n");
+}
+
+//implements fast power algorithm O(log(exp))
+long power_mod(long base, long exp, long mod){
+    long res=1;
+    long cur=base;
+    while (exp>0){
+        if (exp%2==1)
+            res=(res*cur)%mod;
+        cur=(cur*base)%mod;
+        exp/=2;
+    }
+    return res;
+}
+
+/*
+ Takes O(log(mod)) time,
+ Uses extended euclidian algorithm (although it does not look like it)
+*/
+long inverse(long val, long mod){
+	long x,y,a,b,temp;
+	x=mod;
+	y=val;
+	a=0;
+	b=1;
+	while (y!=0){
+	  	temp=b;
+	 	b=a-(x/y)*b;
+	 	a=temp;
+	  	temp=y;
+	  	y=x%y;
+	  	x=temp;
+	}
+	if (x==1)
+		return a%mod;
+	else
+		printf("Unable to find inverse for %ld in F%ld\n",val,mod);
+}
+long true_mod(long val, long mod){
+    long ret=val%mod;
+    if (ret<0)
+        return ret+mod;
+    return ret;
+}
+void test_inverse(){
+    long mods[5]={3,5,7,11,13};
+    long val=2;
+    long invs[5]={2,3,4,6,7};
+    for (int i=0; i<5; i++){
+        long res=inverse(val,mods[i]);
+        if (true_mod(res,mods[i])!=invs[i])
+            printf("Inverse Error: 2*%ld!=1 mod %ld\n",true_mod(res,mods[i]),mods[i]);
+    }
+}
+void test_power_mod(){
+    long res=power_mod(3,5,4);
+    if (res!=1)
+        printf("Power_mod error: 3^5!=%ld mod 4\n",res);
+}
+
+/*Requirements
+*  kN+1=P (k in Z)
+*  root = g^k mod P (g is generator of F_P)
+*/
+int main(int argc, char** argv){
+    test_inverse();
+	test_power_mod();
+	if (argc<4){
+        printf("Recieved %d args. Usage: N P root\n",argc);
+        exit(0);
+    }
+    long N,P,root,i;
+    N = atoi(argv[1]);
+    P = atoi(argv[2]);
+    root = atoi(argv[3]);
+
+    long* vec1 = (long*)malloc(sizeof(long)*N);
+    long* vec2= (long*)malloc(sizeof(long)*N);
+    long* res = (long*)malloc(sizeof(long)*N);
+    long* temp = (long*)malloc(sizeof(long)*N);
+
+    srand(time(NULL));
+    for (i=0; i<N; i++){
+        vec1[i] = rand()%P;
+        vec2[i] = rand()%P;
+    }
+
+    printf("Polynomial 1\n");
+    printPoly(vec1,N);
+    printf("Polynomial 2\n");
+    printPoly(vec2,N);
+
+    convolution(vec1,vec2,res,temp,N,P,root);
+
+    printf("Result\n");
+    printPoly(res,N);
+
+}
