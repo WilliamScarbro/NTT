@@ -1,10 +1,13 @@
 CFLAGS=-03 -std=c99
 CC=gcc
 
+default: conv fntt
 
-default: ntt
+conv: ntt.c ntt.h
+	$(CC) ntt.c -o conv -DCONV_TEST
 
-ntt: ntt.c ntt.h
-	$(CC) ntt.c -o ntt
+fntt: ntt.c ntt.h
+	$(CC) ntt.c -o fntt -DFNTT_TEST
 
-
+clean:
+	rm conv fntt

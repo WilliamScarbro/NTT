@@ -1,7 +1,72 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "ntt.h"
+
+/*
+* Computes NTT using the FFT Algorithm
+* 
+*/
+void fntt(long* vec, long* dest, long* temp, long N, long P, long root, long stride, long start, long depth){
+	//printf("stride: %ld, start: %ld, depth: %ld\n",stride,start,depth);
+	//base case
+	if (depth==0){
+		fntt_help(vec,dest,N,P,root,stride,start);
+		return;
+	}
+	//recursive calls (notice temp and dest are reversed)
+	fntt(vec,temp,dest,N,P,root,stride*2,start,depth-1);
+	fntt(vec,temp,dest,N,P,root,stride*2,start+stride,depth-1);
+	//butterfly
+	long i,r2i;
+	long ti;
+	long di;
+	for (i=0; i<N/2; i+=stride){
+		r2i=power_mod(root,i,P);
+		ti=2*i+start;
+		di=i+start;
+		dest[di]=(temp[ti]+r2i*temp[ti+stride])%P;
+		dest[di+N/2]=(temp[ti]-r2i*temp[ti+stride])%P;
+	}
+	#ifdef DEBUG
+	printf("fntt: Intermediate Result: \n");
+	printPoly(dest,N);
+	#endif
+}
+
+/*
+* NTT base case for fntt
+* The effective length of the polynomial is N/stride
+* root must be adjusted to correct for shorter N
+* vec and dest are only accessed on stride indexes (to represent shorter vec)
+*/
+void fntt_help(long* vec, long* dest, long N, long P, long root, long stride, long start){
+	long i,j,sum;
+	#ifdef DEBUG
+	printf("fntt_help\nInput:\n  ");
+	for (i=0; i*stride+start<N; i++)
+		printf("%ld*x%ld + ",vec[start+i*stride],i);
+	#endif
+	
+	//adjust root for smaller N
+	root=power_mod(root,stride,P);
+	for (i=0; i<N/stride; i++){
+		sum=0;
+		for (j=0; j*stride+start<N; j++){
+			sum+=vec[start+j*stride]*power_mod(root,i*j,P);
+			sum%=P;
+		}
+		dest[start+i*stride]=sum;
+	}
+	#ifdef DEBUG
+	printf("\nOutput\n  ");
+	for (i=0; i*stride+start<N; i++)
+		printf("%ld*x%ld + ",dest[start+i*stride],i);
+	printf("\n");
+	#endif
+}
+
 /*
 * Computes forward NTT
 * in Z[X]/p
@@ -19,6 +84,7 @@ void ntt(long* vec, long* dest, long N, long P, long root){
         dest[i]=sum;
     }
 }
+
 /*
 * Computes reverse NTT
 */
@@ -49,6 +115,8 @@ void convolution(long* vec1, long* vec2, long* dest, long* temp, long N, long P,
 	//printPoly(temp,N);
     inv_ntt(temp,dest,N,P,root);
 }
+
+// Helper Methods for NTT
 
 /*
 * Slow convolution algorithm to check results of NTT
@@ -99,6 +167,7 @@ long generator(long P){
 	printf("Unable to find generator for %ld\n",P);
 	return -1;
 }
+
 /*
 * finds element of F_P which has order N
 * this produces the w for NTT (Equivalent to N-th root of 1 in DFT)
@@ -121,14 +190,16 @@ long power_mod(long base, long exp, long mod){
     }
     return res;
 }
-
+// returns positive lift in mod
 long true_mod(long val, long mod){
     long ret=val%mod;
     if (ret<0)
         return ret+mod;
     return ret;
 }
+
 /*
+ Finds inverse of val in F_mod, i.e. i : i*val=1 (mod)
  Takes O(log(mod)) time,
  Uses extended euclidian algorithm (although it does not look like it)
 */
@@ -152,6 +223,28 @@ long inverse(long val, long mod){
 		printf("Unable to find inverse for %ld in F%ld\n",val,mod);
 }
 
+int is_prime(long P){
+	if (P==1)
+		return 0;
+	for (long i=2; i*i<=P; i++){
+		if (P%i==0)
+			return 0;
+	}
+	return 1;
+}
+
+/* 
+* finds a usable mod for NTT algorithm
+* i.e. P : P>midMod && N|P-1
+*/
+long usable_mod(long N, long minMod){
+	long cur=(minMod/N)*N;
+	while (!is_prime(cur+1))
+		cur+=N;
+	return cur+1;
+}
+
+//Some test cases
 void test_ntt(){
 	long vec[3]={2,3,3};
 	long trans[3]={1,6,6};
@@ -167,7 +260,13 @@ void test_ntt(){
 	printf("Correct\n");
 	printPoly(vec,3);
 }
-
+void test_IsPrime(){
+	int primes[16]={1,1,0,1,0,1,0,0,0,1,0,1,0,0,0,1};
+	for (int i=2; i<=17; i++){
+		if (is_prime(i)!=primes[i-2])
+			printf("is prime failed for %d\n",i);
+	}
+}
 void test_inverse(){
     long mods[5]={3,5,7,11,13};
     long val=2;
@@ -202,6 +301,7 @@ void test_power_mod(){
 */
 int main(int argc, char** argv){
 	//test_ntt();
+	test_IsPrime();
 	test_inverse();
 	test_power_mod();
 	printf("Tests Completed\n");
@@ -212,7 +312,8 @@ int main(int argc, char** argv){
     long N,P,root,i;
     N = atoi(argv[1]);
     P = atoi(argv[2]);
-    root = get_root(N,P);
+    P = usable_mod(N,P);
+	root = get_root(N,P);
 	printf("root: %ld\n",root);
 
     long* vec1 = (long*)malloc(sizeof(long)*N);
@@ -226,7 +327,8 @@ int main(int argc, char** argv){
         vec2[i] = rand()%P;
     }
 
-    printf("Polynomial 1\n");
+    #ifdef CONV_TEST
+	printf("Polynomial 1\n");
     printPoly(vec1,N);
     printf("Polynomial 2\n");
     printPoly(vec2,N);
@@ -240,17 +342,35 @@ int main(int argc, char** argv){
 
 	printf("Correct Result\n");
 	printPoly(temp,N);
+	#endif
+	
+	#ifdef FNTT_TEST
+	
+	fntt(vec1,res,temp,N,P,root,1,0,3);
 
+	ntt(vec1,temp,N,P,root);
+
+	printf("Polynomial\n");
+	printPoly(vec1,N);
+
+	printf("FNTT Result\n");
+    printPoly(res,N);
+	
+	printf("Correct Result\n");
+	printPoly(temp,N);
+	#endif
+	
 	//check results
 	int success=1;
 	for (i=0; i<N; i++){
-		if (res[i]!=temp[i])
+		if (true_mod(res[i],P)!=true_mod(temp[i],P))
 			success=0;
 	}
 	if (success)
-		printf("Test is Success\n");
+		printf("Test Successful\n");
 	else
 		printf("Test is Failure.\n");
+	
 	free(vec1);
 	free(vec2);
 	free(res);

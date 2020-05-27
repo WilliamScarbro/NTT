@@ -1,6 +1,8 @@
 #ifndef NNT_H
 #define NTT_H
 
+void fntt(long* vec, long* dest, long* temp, long N, long P, long root, long stride, long start, long depth);
+void fntt_help(long* vec, long* dest, long N, long P, long root, long stride, long start);
 void ntt(long* vec, long* dest, long N, long P, long root);
 void inv_ntt(long* vec, long* dest, long N, long P, long root);
 void printPoly(long* vec, long N);
