@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #include "ntt.h"
 
 /*
-* Computes NTT using the FFT Algorithm
-* 
+* Computes NTT on <vec> using the FFT Algorithm
+* 2^(depth) | N (for initial call)
+* stride=1, start=0 (for initial call)
 */
 void fntt(long* vec, long* dest, long* temp, long N, long P, long root, long stride, long start, long depth){
 	//printf("stride: %ld, start: %ld, depth: %ld\n",stride,start,depth);
@@ -309,12 +311,15 @@ int main(int argc, char** argv){
         printf("Recieved %d args. Usage: ntt <N> <P>\n",argc);
         exit(0);
     }
-    long N,P,root,i;
+    long N,P,root,i,depth;
     N = atoi(argv[1]);
-    P = atoi(argv[2]);
-    P = usable_mod(N,P);
+    //temp change to measure depth
+	depth = atoi(argv[2]);
+	P = usable_mod(N,1);
+	//P = atoi(argv[2]);
+    //P = usable_mod(N,P);
 	root = get_root(N,P);
-	printf("root: %ld\n",root);
+	printf(" Nth root: %ld\n",root);
 
     long* vec1 = (long*)malloc(sizeof(long)*N);
     long* vec2= (long*)malloc(sizeof(long)*N);
@@ -326,6 +331,11 @@ int main(int argc, char** argv){
         vec1[i] = rand()%P;
         vec2[i] = rand()%P;
     }
+
+	//timing
+	struct timeval time;
+	double time1, time2;
+
 
     #ifdef CONV_TEST
 	printf("Polynomial 1\n");
@@ -340,6 +350,7 @@ int main(int argc, char** argv){
 	
 	check_conv(vec1,vec2,temp,N,P);
 
+	
 	printf("Correct Result\n");
 	printPoly(temp,N);
 	#endif
@@ -358,6 +369,35 @@ int main(int argc, char** argv){
 	
 	printf("Correct Result\n");
 	printPoly(temp,N);
+	#endif
+	
+    #ifdef FNTT_TIME
+	//use maximum recursion
+	/*long depth=0;
+	long n=N;
+	while (n%2==0 && n>1){
+		n/=2;
+		depth++;
+	}
+*/
+	printf("Depth: %ld\n",depth);
+	gettimeofday(&time, NULL);
+    time1 = (((double) time.tv_sec) + ((double) time.tv_usec)/1000000);
+	
+	fntt(vec1,res,temp,N,P,root,1,0,depth);
+
+	gettimeofday(&time, NULL);
+    time1 = (((double) time.tv_sec) + ((double) time.tv_usec)/1000000) - time1;
+
+	gettimeofday(&time, NULL);
+    time2 = (((double) time.tv_sec) + ((double) time.tv_usec)/1000000);
+
+	ntt(vec1,temp,N,P,root);
+
+	gettimeofday(&time, NULL);
+    time2 = (((double) time.tv_sec) + ((double) time.tv_usec)/1000000) - time2;
+
+	printf("FNTT time: %f\nNTT time: %f\n",time1, time2);
 	#endif
 	
 	//check results
