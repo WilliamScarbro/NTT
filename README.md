@@ -17,3 +17,4 @@
 ## Resources
 * For an in depth look at [Spiral](https://ieeexplore.ieee.org/document/8510983)
 * NTT optimizations [Roy et al.](https://www.iacr.org/archive/ches2014/87310183/87310183.pdf), [Poppelmann et al.](https://drive.google.com/drive/u/0/folders/1fyT38SmWpSqVXkr2eXH-haAuA-NhMzLM)
+* See Internship Overview -> References for more 
