@@ -6,8 +6,8 @@
 * Incorperates one NTT optimization ( \psi powers absorbtion)
 
 ## Spiral Code
-* ntt.gi: first NTT implementation in Spiral
-* ntt_nw.gi: includes \psi powers for negative wrapped convolution
+* ntt.g: first NTT implementation in Spiral
+* ntt_nw.g: includes \psi powers for negative wrapped convolution
 * See [Spiral User's Manual](https://www.spiral.net/doc/usermanual/) to run
 
 ## Sage Code
